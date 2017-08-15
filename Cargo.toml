@@ -1,5 +1,5 @@
 [package]
-name = "keygen-lib"
+name = "keygen"
 version = "1.0.0"
 authors = ["James Tease <james@jamestease.co.uk>"]
 
