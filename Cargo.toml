@@ -1,7 +1,11 @@
 [package]
-name = "keygen"
+name = "serial-key"
 version = "1.0.0"
 authors = ["James Tease <james@jamestease.co.uk>"]
+repository = "https://github.com/whostolemyhat/keygen-crate"
+homepage = "https://github.com/whostolemyhat/keygen-crate"
+documentation = "https://github.com/whostolemyhat/keygen-crate"
+license = "MIT"
 
 [dependencies]
 rand = "0.3"
