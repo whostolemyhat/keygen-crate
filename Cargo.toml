@@ -1,0 +1,8 @@
+[package]
+name = "keygen-lib"
+version = "1.0.0"
+authors = ["James Tease <james@jamestease.co.uk>"]
+
+[dependencies]
+rand = "0.3"
+regex = "0.2"
