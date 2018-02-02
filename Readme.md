@@ -11,7 +11,7 @@ An [example key generator can be found here](https://github.com/whostolemyhat/se
 Cargo.toml
 ```
 [dependencies]
-serial-key = "1.0"
+serial-key = "2.0"
 ```
 
 main.rs
@@ -58,4 +58,5 @@ The blacklist is a vector of seeds; any keys with seeds in this vector will fail
 
 ## Verification/Checksum
 
-The `checksum` method is a quick and fairly inaccurate way to determine whether a key is invalid or not - it only checks whether the checksum matches the rest of the key, although it is possible to alter the key and checksum and still end up valid. The verify function checks the checksum along with several bytes in the key to determine if the key actually is valid - the full reasoning is [in the original article](http://www.brandonstaggs.com/2007/07/26/implementing-a-partial-serial-number-verification-system-in-delphi/), but essentially this is so you have a quick-and-dirty way to check the key's valid on startup (`checksum`), and a full check later when trying to use more funcationlity like saving. Having the quick check on startup means reverse-engineers don't know exactly when the full check happens in the software so there isn't an obvious entry point.
+The `checksum` method is a quick and fairly inaccurate way to determine whether a key is invalid or not - it only checks whether the checksum matches the rest of the key, although it is possible to alter the key and checksum and still end up valid.
+The verify function checks the checksum along with several bytes in the key to determine if the key actually is valid - the full reasoning is [in the original article](http://www.brandonstaggs.com/2007/07/26/implementing-a-partial-serial-number-verification-system-in-delphi/), but essentially this is so you have a quick-and-dirty way to check the key's valid on startup (`checksum`), and a full check later when trying to use more funcationlity like saving. Having the quick check on startup means reverse-engineers don't know exactly when the full check happens in the software so there isn't an obvious entry point.

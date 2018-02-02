@@ -94,7 +94,7 @@ pub fn check_key_checksum(key: &str, num_bytes: &i8) -> bool {
     checksum == get_checksum(&slice)
 }
 
-pub fn check_key(s: &str, blacklist: &Vec<String>, num_bytes: &i8, byte_shifts: &Vec<(i16, i16, i16)>) -> Status {
+pub fn check_key(s: &str, blacklist: &Vec<String>, num_bytes: &i8, byte_shifts: &Vec<(i16, i16, i16)>, positions: Option<Vec<i16>>) -> Status {
     if !check_key_checksum(s, num_bytes) {
         return Status::Invalid;
     }
@@ -122,7 +122,48 @@ pub fn check_key(s: &str, blacklist: &Vec<String>, num_bytes: &i8, byte_shifts: 
         Ok(s) => s
     };
 
-    // test key_bytes - don't test all of them!
+    match positions {
+        Some(pos) => check_bytes(key, seed_num, byte_shifts, pos),
+        None => check_random_bytes(key, seed_num, num_bytes, byte_shifts)
+    }
+}
+
+/// Check specific bytes: this means you don't need to pass all the byte shifts in every check
+/// Also need to pass array of byte positions to check
+/// ie key: 4206-1A9F-FDD6-4D48-A1C8-ED15-FB36
+/// expected byte shifts: [(74, 252, 42), (42, 116, 226)]
+/// byte positions to check: [0, 4]
+/// this will check FD and A1 match (74, 252, 42) and (42, 116, 226) respectively
+fn check_bytes(key: String, seed_num: i64, byte_shifts: &Vec<(i16, i16, i16)>, positions: Vec<i16>) -> Status {
+    if positions.len() < 2 {
+        println!("Must check at least 2 bytes");
+        return Status::Invalid;
+    }
+
+    for (i, pos) in positions.into_iter().enumerate() {
+        let start = ((pos * 2) + 8) as usize;
+        let end = start + 2;
+
+        if end > key.len() {
+            return Status::Invalid;
+        }
+
+        let key_byte = &key[start..end];
+        let shifts = &byte_shifts[i as usize];
+
+        let byte = get_key_byte(&seed_num, shifts.0, shifts.1, shifts.2);
+        if key_byte != byte {
+            return Status::Phony;
+        }
+    }
+
+    Status::Good
+}
+
+/// Pick random bytes in the key and check that they're as expected
+/// This means you don't check the same keys in each run, but also means you need to pass all the
+/// byte shifts with every call (compared with `check_bytes` where not all the byte shifts are exposed with each call)
+fn check_random_bytes(key: String, seed_num: i64, num_bytes: &i8, byte_shifts: &Vec<(i16, i16, i16)>) -> Status {
     let mut bytes_to_check = 3;
     if *num_bytes > 5 {
         bytes_to_check = num_bytes / 2;
@@ -145,7 +186,10 @@ pub fn check_key(s: &str, blacklist: &Vec<String>, num_bytes: &i8, byte_shifts: 
             return Status::Invalid;
         }
 
+
         let key_byte = &key[start..end];
+        println!("num {:?}, shifts {:?}", &byte_to_check, &byte_shifts);
+
         let shifts = &byte_shifts[byte_to_check as usize];
 
         let byte = get_key_byte(&seed_num, shifts.0, shifts.1, shifts.2);
@@ -154,7 +198,7 @@ pub fn check_key(s: &str, blacklist: &Vec<String>, num_bytes: &i8, byte_shifts: 
         }
     }
 
-    return Status::Good;
+    Status::Good
 }
 
 #[cfg(test)]
@@ -191,25 +235,34 @@ mod test {
         let blacklist = vec![];
         let num_bytes = 4;
         let byte_shifts = vec![(24, 3, 200), (10, 0, 56), (1, 2, 91), (7, 1, 100)];
-        assert_eq!(super::check_key(&key, &blacklist, &num_bytes, &byte_shifts), super::Status::Good);
+        assert_eq!(super::check_key(&key, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Good);
+
+        let byte_shifts = vec![(24, 3, 200), (1, 2, 91)];
+        let positions = Option::Some(vec![0, 2]);
+        assert_eq!(super::check_key(&key, &blacklist, &num_bytes, &byte_shifts, positions), super::Status::Good);
+
+        let byte_shifts = vec![(1, 2, 91), (10, 0, 56)];
+        let positions = Option::Some(vec![2, 1]);
+        assert_eq!(super::check_key(&key, &blacklist, &num_bytes, &byte_shifts, positions), super::Status::Good);
 
         let inconsistent_key = "3abC-9099-e39D-4E65-E060";
-        assert_eq!(super::check_key(&inconsistent_key, &blacklist, &num_bytes, &byte_shifts), super::Status::Good);
+        let byte_shifts = vec![(24, 3, 200), (10, 0, 56), (1, 2, 91), (7, 1, 100)];
+        assert_eq!(super::check_key(&inconsistent_key, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Good);
 
         let wrong_checksum = "3ABC-9099-E39D-4E65-E061";
-        assert_eq!(super::check_key(&wrong_checksum, &blacklist, &num_bytes, &byte_shifts), super::Status::Invalid);
+        assert_eq!(super::check_key(&wrong_checksum, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Invalid);
 
         let second_fake_key = "3ABC-9099-E49D-4E65-E761";
-        assert_eq!(super::check_key(&second_fake_key, &blacklist, &num_bytes, &byte_shifts), super::Status::Phony);
+        assert_eq!(super::check_key(&second_fake_key, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Phony);
 
         let third_fake_key = "3ABC-9199-E39D-4E65-EB61";
-        assert_eq!(super::check_key(&third_fake_key, &blacklist, &num_bytes, &byte_shifts), super::Status::Phony);
+        assert_eq!(super::check_key(&third_fake_key, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Phony);
 
         let invalid_key = "BC-9099-E39D-4E65-E061";
-        assert_eq!(super::check_key(&invalid_key, &blacklist, &num_bytes, &byte_shifts), super::Status::Invalid);
+        assert_eq!(super::check_key(&invalid_key, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Invalid);
 
         let second_invalid_key = "3AXC-9099-E39D-4E65-E061";
-        assert_eq!(super::check_key(&second_invalid_key, &blacklist, &num_bytes, &byte_shifts), super::Status::Invalid);
+        assert_eq!(super::check_key(&second_invalid_key, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Invalid);
     }
 
     #[test]
@@ -219,6 +272,10 @@ mod test {
         let num_bytes = 4;
         let byte_shifts = vec![(24, 3, 200), (10, 0, 56), (1, 2, 91), (7, 1, 100)];
 
-        assert_eq!(super::check_key(&key, &blacklist, &num_bytes, &byte_shifts), super::Status::Blacklisted);
+        assert_eq!(super::check_key(&key, &blacklist, &num_bytes, &byte_shifts, Option::None), super::Status::Blacklisted);
+
+        let byte_shifts = vec![(24, 3, 200), (1, 2, 91)];
+        let positions = Option::Some(vec![0, 2]);
+        assert_eq!(super::check_key(&key, &blacklist, &num_bytes, &byte_shifts, positions), super::Status::Blacklisted);
     }
 }
