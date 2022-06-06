@@ -132,9 +132,9 @@ pub fn check_key(s: &str, blacklist: &Vec<String>, num_bytes: &i8, byte_shifts: 
     let mut checked: Vec<i8> = Vec::new();
 
     for _ in 0..bytes_to_check {
-        let mut byte_to_check = rand::thread_rng().gen_range(0, num_bytes - 1);
+        let mut byte_to_check = rand::thread_rng().gen_range(0..num_bytes - 1);
         while checked.contains(&byte_to_check) {
-            byte_to_check = rand::thread_rng().gen_range(0, num_bytes - 1);
+            byte_to_check = rand::thread_rng().gen_range(0..num_bytes - 1);
         }
         checked.push(byte_to_check);
 
